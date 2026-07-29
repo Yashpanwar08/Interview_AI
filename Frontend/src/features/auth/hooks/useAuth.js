@@ -8,10 +8,12 @@ export const useAuth = () => {
 
     const context = useContext(AuthContext)
     const { user, setUser, loading, setLoading } = context
+    const [error, setError] = useState(null)
 
 
     const handleLogin = async ({ email, password }) => {
         setLoading(true)
+        setError(null)
         try {
             const data = await login({ email, password })
             if (data?.user) {
@@ -20,6 +22,7 @@ export const useAuth = () => {
             }
             return false
         } catch (err) {
+            setError(err.message || "Login failed")
             return false
         } finally {
             setLoading(false)
@@ -28,6 +31,7 @@ export const useAuth = () => {
 
     const handleRegister = async ({ username, email, password }) => {
         setLoading(true)
+        setError(null)
         try {
             const data = await register({ username, email, password })
             if (data?.user) {
@@ -36,6 +40,7 @@ export const useAuth = () => {
             }
             return false
         } catch (err) {
+            setError(err.message || "Registration failed")
             return false
         } finally {
             setLoading(false)
@@ -44,6 +49,7 @@ export const useAuth = () => {
 
     const handleLogout = async () => {
         setLoading(true)
+        setError(null)
         try {
             const data = await logout()
             setUser(null)
@@ -71,5 +77,5 @@ export const useAuth = () => {
 
     }, [])
 
-    return { user, loading, handleRegister, handleLogin, handleLogout }
+    return { user, loading, error, setError, handleRegister, handleLogin, handleLogout }
 }
