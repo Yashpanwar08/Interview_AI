@@ -4,7 +4,10 @@ const { zodToJsonSchema } = require("zod-to-json-schema")
 const puppeteer = require("puppeteer")
 
 function getAiClient() {
-    const apiKey = process.env.GOOGLE_GENAI_API_KEY || "dummy-key"
+    const apiKey = process.env.GOOGLE_GENAI_API_KEY
+    if (!apiKey || apiKey === "dummy-key") {
+        throw new Error("GOOGLE_GENAI_API_KEY is not set in Backend .env file. Please provide a valid Gemini API Key.")
+    }
     return new GoogleGenAI({ apiKey })
 }
 
@@ -47,9 +50,10 @@ function parseAiJson(rawText) {
 }
 
 const AVAILABLE_MODELS = [
-    "gemini-2.5-flash",
-    "gemini-2.0-flash",
-    "gemini-1.5-flash"
+    "gemini-3.6-flash",
+    "gemini-3-flash-preview",
+    "gemini-2.5-pro",
+    "gemini-2.5-flash-preview"
 ]
 
 async function generateInterviewReport({ resume, selfDescription, jobDescription }) {
