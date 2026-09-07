@@ -25,7 +25,7 @@ export const useInterview = () => {
             return { success: false, message: response?.message || "Failed to generate report" }
         } catch (error) {
             console.error("Error generating report:", error)
-            const errMsg = error?.response?.data?.message || error?.message || "Network error. Please check your backend connection."
+            const errMsg = error?.response?.data?.error || error?.response?.data?.message || error?.message || "Failed to generate report. Please try again."
             return { success: false, message: errMsg }
         } finally {
             setLoading(false)
@@ -76,14 +76,23 @@ export const useInterview = () => {
             link.setAttribute("download", `resume_${interviewReportId}.pdf`)
             document.body.appendChild(link)
             link.click()
-            link.remove()
+            document.body.removeChild(link)
             setTimeout(() => {
                 window.URL.revokeObjectURL(url)
             }, 1000)
         }
         catch (error) {
             console.error("Error downloading resume PDF:", error)
-            const errMsg = error?.response?.data?.message || "Failed to download resume PDF. Please try again."
+            let errMsg = "Failed to download resume PDF. Please try again."
+            if (error?.response?.data instanceof Blob) {
+                try {
+                    const text = await error.response.data.text()
+                    const json = JSON.parse(text)
+                    errMsg = json.error || json.message || errMsg
+                } catch (_) {}
+            } else if (error?.response?.data?.message) {
+                errMsg = error.response.data.message
+            }
             alert(errMsg)
         } finally {
             setDownloadingResumeId(null)
