@@ -2,9 +2,6 @@ const pdfParse = require("pdf-parse")
 const { generateInterviewReport, generateResumePdf } = require("../services/ai.service")
 const interviewReportModel = require("../models/interviewReport.model")
 
-
-
-
 /**
  * @description Controller to generate interview report based on user self description, resume and job description.
  */
@@ -12,30 +9,30 @@ async function generateInterViewReportController(req, res) {
     try {
         let resumeText = ""
 
-        if (req.file) {
+        if (req.file && req.file.buffer) {
             try {
                 if (typeof pdfParse === "function") {
                     const parsed = await pdfParse(req.file.buffer)
-                    resumeText = parsed.text || ""
+                    resumeText = parsed?.text || ""
                 } else if (pdfParse && pdfParse.PDFParse) {
                     const instance = new pdfParse.PDFParse(Uint8Array.from(req.file.buffer))
                     const parsed = await instance.getText()
-                    resumeText = parsed.text || parsed || ""
+                    resumeText = typeof parsed === "string" ? parsed : parsed?.text || ""
                 }
-            } catch (err) {
-                console.error("PDF Parsing error:", err)
+            } catch (pdfErr) {
+                console.error("PDF Parsing error (continuing with selfDescription):", pdfErr.message)
             }
         }
 
         const { selfDescription, jobDescription } = req.body
 
-        if (!jobDescription) {
+        if (!jobDescription || !jobDescription.trim()) {
             return res.status(400).json({
-                message: "Job description is required."
+                message: "Target job description is required."
             })
         }
 
-        if (!resumeText && !selfDescription) {
+        if (!resumeText && (!selfDescription || !selfDescription.trim())) {
             return res.status(400).json({
                 message: "Either a Resume or a Self Description is required."
             })
@@ -44,24 +41,24 @@ async function generateInterViewReportController(req, res) {
         const interViewReportByAi = await generateInterviewReport({
             resume: resumeText,
             selfDescription: selfDescription || "",
-            jobDescription
+            jobDescription: jobDescription.trim()
         })
 
         const interviewReport = await interviewReportModel.create({
             user: req.user.id,
             resume: resumeText,
             selfDescription: selfDescription || "",
-            jobDescription,
+            jobDescription: jobDescription.trim(),
             ...interViewReportByAi
         })
 
-        res.status(201).json({
+        return res.status(201).json({
             message: "Interview report generated successfully.",
             interviewReport
         })
     } catch (error) {
         console.error("Error in generateInterViewReportController:", error)
-        res.status(500).json({
+        return res.status(500).json({
             message: "Failed to generate interview report",
             error: error.message
         })
@@ -72,21 +69,28 @@ async function generateInterViewReportController(req, res) {
  * @description Controller to get interview report by interviewId.
  */
 async function getInterviewReportByIdController(req, res) {
+    try {
+        const { interviewId } = req.params
 
-    const { interviewId } = req.params
+        const interviewReport = await interviewReportModel.findOne({ _id: interviewId, user: req.user.id })
 
-    const interviewReport = await interviewReportModel.findOne({ _id: interviewId, user: req.user.id })
+        if (!interviewReport) {
+            return res.status(404).json({
+                message: "Interview report not found."
+            })
+        }
 
-    if (!interviewReport) {
-        return res.status(404).json({
-            message: "Interview report not found."
+        return res.status(200).json({
+            message: "Interview report fetched successfully.",
+            interviewReport
+        })
+    } catch (error) {
+        console.error("Error fetching report by ID:", error)
+        return res.status(500).json({
+            message: "Failed to fetch interview report",
+            error: error.message
         })
     }
-
-    res.status(200).json({
-        message: "Interview report fetched successfully.",
-        interviewReport
-    })
 }
 
 
@@ -94,12 +98,22 @@ async function getInterviewReportByIdController(req, res) {
  * @description Controller to get all interview reports of logged in user.
  */
 async function getAllInterviewReportsController(req, res) {
-    const interviewReports = await interviewReportModel.find({ user: req.user.id }).sort({ createdAt: -1 }).select("-resume -selfDescription -jobDescription -__v -technicalQuestions -behavioralQuestions -skillGaps -preparationPlan")
+    try {
+        const interviewReports = await interviewReportModel.find({ user: req.user.id })
+            .sort({ createdAt: -1 })
+            .select("-resume -selfDescription -jobDescription -__v -technicalQuestions -behavioralQuestions -skillGaps -preparationPlan")
 
-    res.status(200).json({
-        message: "Interview reports fetched successfully.",
-        interviewReports
-    })
+        return res.status(200).json({
+            message: "Interview reports fetched successfully.",
+            interviewReports
+        })
+    } catch (error) {
+        console.error("Error fetching interview reports:", error)
+        return res.status(500).json({
+            message: "Failed to fetch interview reports",
+            error: error.message
+        })
+    }
 }
 
 
@@ -142,4 +156,9 @@ async function generateResumePdfController(req, res) {
     }
 }
 
-module.exports = { generateInterViewReportController, getInterviewReportByIdController, getAllInterviewReportsController, generateResumePdfController }
+module.exports = {
+    generateInterViewReportController,
+    getInterviewReportByIdController,
+    getAllInterviewReportsController,
+    generateResumePdfController
+}

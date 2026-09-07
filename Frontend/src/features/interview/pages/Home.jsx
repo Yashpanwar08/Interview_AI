@@ -10,6 +10,7 @@ const Home = () => {
     const [ jobDescription, setJobDescription ] = useState("")
     const [ selfDescription, setSelfDescription ] = useState("")
     const [ selectedFileName, setSelectedFileName ] = useState("")
+    const [ errorMsg, setErrorMsg ] = useState("")
     const resumeInputRef = useRef()
 
     const navigate = useNavigate()
@@ -21,18 +22,22 @@ const Home = () => {
     }
 
     const handleGenerateReport = async () => {
+        setErrorMsg("")
         const resumeFile = resumeInputRef.current?.files?.[ 0 ]
-        if (!jobDescription) {
-            alert("Please provide a target job description.")
+        if (!jobDescription || !jobDescription.trim()) {
+            setErrorMsg("Please provide a target job description.")
             return
         }
-        if (!resumeFile && !selfDescription) {
-            alert("Please upload a resume or provide a quick self-description.")
+        if (!resumeFile && (!selfDescription || !selfDescription.trim())) {
+            setErrorMsg("Please upload a resume or provide a quick self-description.")
             return
         }
-        const data = await generateReport({ jobDescription, selfDescription, resumeFile })
-        if (data && data._id) {
-            navigate(`/interview/${data._id}`)
+
+        const result = await generateReport({ jobDescription: jobDescription.trim(), selfDescription: selfDescription.trim(), resumeFile })
+        if (result && result.success && result.data && result.data._id) {
+            navigate(`/interview/${result.data._id}`)
+        } else if (result && result.message) {
+            setErrorMsg(result.message)
         }
     }
 
@@ -41,7 +46,8 @@ const Home = () => {
             <div className="home-page-container">
                 <Navbar />
                 <main className='loading-screen'>
-                    <h1>Loading your interview plan...</h1>
+                    <h1>Analyzing your profile and generating custom interview plan...</h1>
+                    <p style={{ color: '#7d8590', marginTop: '1rem' }}>This usually takes about 15-30 seconds.</p>
                 </main>
             </div>
         )
@@ -57,6 +63,29 @@ const Home = () => {
                     <h1>Create Your Custom <span className='highlight'>Interview Plan</span></h1>
                     <p>Let our AI analyze the job requirements and your unique profile to build a winning strategy.</p>
                 </header>
+
+                {errorMsg && (
+                    <div style={{
+                        width: '100%',
+                        maxWidth: '900px',
+                        color: '#ff4d4d',
+                        backgroundColor: 'rgba(255,77,77,0.1)',
+                        border: '1px solid rgba(255,77,77,0.3)',
+                        padding: '0.85rem 1.25rem',
+                        borderRadius: '0.6rem',
+                        fontSize: '0.9rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem'
+                    }}>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="12" cy="12" r="10" />
+                            <line x1="12" y1="8" x2="12" y2="12" />
+                            <line x1="12" y1="16" x2="12.01" y2="16" />
+                        </svg>
+                        {errorMsg}
+                    </div>
+                )}
 
                 {/* Main Card */}
                 <div className='interview-card'>
@@ -150,9 +179,10 @@ const Home = () => {
                         <span className='footer-info'>AI-Powered Strategy Generation &bull; Approx 30s</span>
                         <button
                             onClick={handleGenerateReport}
-                            className='generate-btn'>
+                            className='generate-btn'
+                            disabled={loading}>
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z" /></svg>
-                            Generate My Interview Strategy
+                            {loading ? "Generating Strategy..." : "Generate My Interview Strategy"}
                         </button>
                     </div>
                 </div>
